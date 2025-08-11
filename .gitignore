@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/
+venv/
+
+# Env files (real secrets should never be committed)
+.env
+.env.*
+
+# Test/cache artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+
+# OS cruft
+.DS_Store
+
+# Safety
+.git/

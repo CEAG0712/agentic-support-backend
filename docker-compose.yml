@@ -1,10 +1,28 @@
-version: "3.9"
+# version: "3.9"
 services:
   mongo:
     image: mongo:7
     ports:
       - "27017:27017"
+
+
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+
+
+
+  mongo-express:
+    image: mongo-express:1.0.0-alpha.4
+    container_name: dev-mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo     # the *service name* above
+      ME_CONFIG_BASICAUTH_USERNAME: admin # UI basic-auth for the web page
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+      # If your Mongo has no auth (our default), this is enough.
+      # If you later enable Mongo auth, add the relevant ME_CONFIG_MONGODB_AUTH_* vars.
+    depends_on:
+      - mongo

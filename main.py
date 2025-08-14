@@ -8,11 +8,14 @@ from database import get_ticket_collection, ping_db
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from bson import ObjectId                      
-from bson.errors import InvalidId              
+from bson.errors import InvalidId    
+from task_queue import get_job_queue            
+
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     deps.ticket_collection = get_ticket_collection()
+    deps.job_queue = get_job_queue()
     yield
 
 
@@ -43,6 +46,14 @@ async def health_db():
     status_code = 200 if ok else 503
 
     return JSONResponse(status_code=status_code, content={"mongo_ok": ok})
+
+@app.get("/health/queue")
+async def health_queue():
+    try:
+        ok = deps.job_queue.connection.ping()
+    except Exception:
+        ok = False
+    return JSONResponse(status_code=(200 if ok else 503), content={"redis_ok":ok})
 
 @app.post("/tickets")
 async def preview_create_ticket(ticket:TicketCreate):

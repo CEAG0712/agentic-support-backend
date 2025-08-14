@@ -100,3 +100,26 @@ async def get_ticket(id:str):
     doc.pop("_id", None)
 
     return TicketOut(**doc)
+
+
+@app.post("/tickets/{id}/classify")
+async def reclassify_ticket(id: str):
+    try:
+        oid = ObjectId(id) 
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid ticket id format")
+
+    doc = await deps.ticket_collection.find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    job = deps.job_queue.enqueue(classify_ticket, id)
+    
+    now = datetime.now(timezone.utc)
+    await deps.ticket_collection.update_one(
+        {"_id": oid},
+        {"$set": {"job_id": job.id, "status": "queued", "updated_at": now}}
+    )
+
+    # 5) Minimal, predictable response contract
+    return {"ticket_id": id, "job_id": job.id, "status": "queued"}

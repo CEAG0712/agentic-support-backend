@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from bson import ObjectId                      
 from bson.errors import InvalidId    
 from task_queue import get_job_queue            
+from jobs import classify_ticket  
 
 
 @asynccontextmanager
@@ -71,7 +72,17 @@ async def preview_create_ticket(ticket:TicketCreate):
     })
     result = await deps.ticket_collection.insert_one(doc)
     ticket_id = str(result.inserted_id)
-    return {"ticket_id": ticket_id, "status": "new"}
+
+    # ---enqueue classification job on the "agentic" queue ---
+    job = deps.job_queue.enqueue(classify_ticket, ticket_id)
+
+    await deps.ticket_collection.update_one(
+        {"_id": result.inserted_id},
+        {"$set": {"job_id": job.id, "status": "queued", "updated_at": now}}
+    )
+
+
+    return {"ticket_id": ticket_id, "job_id": job.id, "status": "queued"}
 
 
 @app.get("/tickets/{id}", response_model=TicketOut)

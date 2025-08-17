@@ -10,7 +10,9 @@ from datetime import datetime, timezone
 from bson import ObjectId                      
 from bson.errors import InvalidId    
 from task_queue import get_job_queue            
-from jobs import classify_ticket  
+from jobs import classify_ticket 
+from rq.job import Job, NoSuchJobError
+from redis.exceptions import RedisError 
 
 
 @asynccontextmanager
@@ -123,3 +125,28 @@ async def reclassify_ticket(id: str):
 
     # 5) Minimal, predictable response contract
     return {"ticket_id": id, "job_id": job.id, "status": "queued"}
+
+
+
+@app.get("/jobs/{job_id}")
+async def get_job_status(job_id:str):
+    try: 
+        job = Job.fetch(job_id, connection=deps.job_queue.connection)
+    except NoSuchJobError:
+        raise HTTPException(status_code=404, detail="Job not found")
+    except RedisError:
+        raise HTTPException(status_code=503, detail="Queue unavailable")
+    
+    status = job.get_status()
+    result = job.result if status == "finished" else None
+    exc_info = job.exc_info if status == "failed" else None
+
+    return{
+        "job_id": job.id,
+        "status": status,
+        "result": result,
+        "exc_info": exc_info,
+        "enqueued_at": job.enqueued_at,
+        "started_at": job.started_at,
+        "ended_at": getattr(job, "ended_at", None)  # present after finish/fail
+    }
